@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jugador 2</title>
+    <style>
+        body { background: linear-gradient(135deg, #33ccff, #0066ff); font-family: Arial; margin: 0; height: 100vh; display: flex; justify-content: center; align-items: center; color: white; }
+        .container { text-align: center; padding: 40px; }
+        h1 { font-size: 48px; margin-bottom: 20px; }
+        .score { font-size: 120px; font-weight: bold; margin: 30px 0; }
+        .led { width: 100px; height: 100px; border-radius: 50%; margin: 30px auto; transition: all 0.3s; }
+        .led-on { background: #ff0; box-shadow: 0 0 60px #ff0; animation: pulse 1s infinite; }
+        .led-off { background: #003366; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✌️ JUGADOR 2</h1>
+        <div class="score" id="score">0</div>
+        <div class="led" id="led"></div>
+    </div>
+    <script>
+        async function actualizar() {
+            const res = await fetch('/api/estado');
+            const data = await res.json();
+            document.getElementById('score').textContent = data.puntaje_j2;
+            document.getElementById('led').className = data.led_j2 ? 'led led-on' : 'led led-off';
+        }
+        setInterval(actualizar, 100);
+        actualizar();
+    </script>
+</body>
+</html>
