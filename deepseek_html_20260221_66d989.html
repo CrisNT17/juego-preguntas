@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Panel del Juez</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a2e; font-family: 'Arial', sans-serif; padding: 20px; color: white; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #ffaa00; text-align: center; font-size: 36px; margin: 20px 0; }
+        .stats-bar { background: #0f3460; padding: 15px; border-radius: 10px; margin: 20px 0; display: flex; justify-content: space-around; }
+        .panel { background: #16213e; padding: 30px; border-radius: 20px; margin: 20px 0; }
+        .pregunta { background: #0f3460; padding: 20px; font-size: 24px; border-radius: 10px; margin: 20px 0; }
+        .opciones-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0; }
+        .opcion { padding: 20px; background: #0f3460; border-radius: 10px; cursor: pointer; text-align: center; }
+        .opcion:hover { background: #ffaa00; }
+        .btn { padding: 15px 30px; font-size: 18px; border: none; border-radius: 10px; cursor: pointer; margin: 10px; }
+        .btn-primary { background: #00ff88; color: black; }
+        .btn-danger { background: #ff3366; color: white; }
+        .btn-warning { background: #ffaa00; color: black; }
+        .marcador { display: flex; justify-content: space-around; font-size: 32px; margin: 20px 0; }
+        .j1 { color: #ff3366; } .j2 { color: #33ccff; }
+        .estado-led { display: inline-block; width: 15px; height: 15px; border-radius: 50%; margin-right: 5px; }
+        .led-on { background: #0f0; box-shadow: 0 0 10px #0f0; }
+        .led-off { background: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👨‍⚖️ PANEL DEL JUEZ</h1>
+        
+        <div class="stats-bar" id="stats">
+            <span>🔄 Estado: <span id="estadoConexion">Conectando...</span></span>
+            <span>📚 Preguntas: <span id="totalPreguntas">0</span></span>
+            <span>💾 Caché: <span id="cacheSize">0</span></span>
+        </div>
+        
+        <div class="panel">
+            <h2>📝 PREGUNTA ACTUAL</h2>
+            <div class="pregunta" id="pregunta">Cargando...</div>
+            <div class="opciones-grid" id="opciones"></div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="btn btn-primary" onclick="aprobar()">✅ APROBAR</button>
+                <button class="btn btn-danger" onclick="rechazar()">❌ RECHAZAR</button>
+                <button class="btn btn-warning" onclick="nuevaPregunta()">🎲 NUEVA PREGUNTA</button>
+                <button class="btn btn-warning" onclick="sincronizar()">🔄 SINCRONIZAR</button>
+            </div>
+        </div>
+        
+        <div class="marcador">
+            <div class="j1">
+                <span class="estado-led" id="ledJ1"></span>
+                JUGADOR 1: <span id="score1">0</span>
+            </div>
+            <div style="color:#ffaa00;">VS</div>
+            <div class="j2">
+                <span class="estado-led" id="ledJ2"></span>
+                JUGADOR 2: <span id="score2">0</span>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>📋 ÚLTIMOS EVENTOS</h2>
+            <div id="eventos" style="max-height: 150px; overflow-y: auto; background: #0f3460; padding: 10px; border-radius: 5px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let ultimoEvento = null;
+        
+        async function actualizar() {
+            try {
+                const res = await fetch('/api/estado');
+                const data = await res.json();
+                
+                // Actualizar marcador
+                document.getElementById('score1').textContent = data.puntaje_j1 || 0;
+                document.getElementById('score2').textContent = data.puntaje_j2 || 0;
+                
+                // Actualizar LEDs
+                document.getElementById('ledJ1').className = data.led_j1 ? 'estado-led led-on' : 'estado-led led-off';
+                document.getElementById('ledJ2').className = data.led_j2 ? 'estado-led led-on' : 'estado-led led-off';
+                
+                // Actualizar estadísticas
+                if (data.estadisticas) {
+                    document.getElementById('estadoConexion').textContent = data.estadisticas.modo || 'ONLINE';
+                    document.getElementById('cacheSize').textContent = data.estadisticas.tamanio || 0;
+                }
+                
+                // Actualizar pregunta
+                if (data.pregunta_actual) {
+                    document.getElementById('pregunta').textContent = data.pregunta_actual.texto;
+                    
+                    let ops = '';
+                    data.pregunta_actual.opciones.forEach((op, i) => {
+                        ops += `<div class="opcion" onclick="seleccionarOpcion(${i+1})">${String.fromCharCode(65+i)}: ${op}</div>`;
+                    });
+                    document.getElementById('opciones').innerHTML = ops;
+                    document.getElementById('totalPreguntas').textContent = data.pregunta_actual.opciones.length;
+                }
+                
+                // Registrar evento si hay nuevo
+                if (data.ultimo_presiono && data.ultimo_presiono !== ultimoEvento) {
+                    agregarEvento(`Jugador ${data.ultimo_presiono} presionó`);
+                    ultimoEvento = data.ultimo_presiono;
+                }
+                
+            } catch (e) {
+                console.error('Error:', e);
+            }
+        }
+        
+        function seleccionarOpcion(op) {
+            document.querySelectorAll('.opcion').forEach(el => el.style.background = '#0f3460');
+            event.target.style.background = '#ffaa00';
+            window.respuestaSeleccionada = op;
+        }
+        
+        async function aprobar() {
+            await fetch('/api/aprobar', { method: 'POST' });
+            agregarEvento('✅ Punto aprobado');
+        }
+        
+        async function rechazar() {
+            await fetch('/api/rechazar', { method: 'POST' });
+            agregarEvento('❌ Respuesta rechazada');
+        }
+        
+        async function nuevaPregunta() {
+            await fetch('/api/nueva_pregunta');
+            agregarEvento('🎲 Nueva pregunta cargada');
+        }
+        
+        async function sincronizar() {
+            agregarEvento('🔄 Sincronizando con GitHub...');
+            const res = await fetch('/api/sincronizar');
+            if (res.ok) {
+                agregarEvento('✅ Sincronización exitosa');
+            } else {
+                agregarEvento('❌ Error en sincronización');
+            }
+        }
+        
+        function agregarEvento(texto) {
+            const div = document.getElementById('eventos');
+            const hora = new Date().toLocaleTimeString();
+            div.innerHTML = `<div>${hora} - ${texto}</div>` + div.innerHTML;
+            while (div.children.length > 10) div.removeChild(div.lastChild);
+        }
+        
+        setInterval(actualizar, 500);
+        actualizar();
+    </script>
+</body>
+</html>

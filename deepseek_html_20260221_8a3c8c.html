@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Público</title>
+    <style>
+        body { background: #000; font-family: Arial; color: white; margin: 0; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .container { text-align: center; }
+        h1 { font-size: 64px; margin-bottom: 40px; text-shadow: 0 0 30px #00ff88; }
+        .marcador { display: flex; gap: 100px; font-size: 120px; margin: 50px; }
+        .j1 { color: #ff3366; } .j2 { color: #33ccff; }
+        .estado { font-size: 48px; margin-top: 50px; padding: 20px; }
+        .ganador-anim { animation: bounce 0.5s; }
+        @keyframes bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-30px);} }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 ARENA 🎮</h1>
+        <div class="marcador">
+            <div class="j1" id="j1">0</div>
+            <div style="color:#00ff88">:</div>
+            <div class="j2" id="j2">0</div>
+        </div>
+        <div class="estado" id="estado">⚡ ESPERANDO ⚡</div>
+    </div>
+    <script>
+        async function actualizar() {
+            const res = await fetch('/api/estado');
+            const data = await res.json();
+            document.getElementById('j1').textContent = data.puntaje_j1;
+            document.getElementById('j2').textContent = data.puntaje_j2;
+            
+            if (data.ganador === 1) {
+                document.getElementById('estado').innerHTML = '🏆 JUGADOR 1 GANA 🏆';
+                document.getElementById('estado').className = 'estado ganador-anim';
+            } else if (data.ganador === 2) {
+                document.getElementById('estado').innerHTML = '🏆 JUGADOR 2 GANA 🏆';
+                document.getElementById('estado').className = 'estado ganador-anim';
+            } else {
+                document.getElementById('estado').innerHTML = '⚡ PREPARADOS ⚡';
+                document.getElementById('estado').className = 'estado';
+            }
+        }
+        setInterval(actualizar, 100);
+        actualizar();
+    </script>
+</body>
+</html>
