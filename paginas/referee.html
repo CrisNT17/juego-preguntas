@@ -6,51 +6,30 @@
     <title>Panel del Juez</title>
     <style>
         body { background: #1a1a2e; color: white; font-family: Arial; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
+        .container { max-width: 600px; margin: 0 auto; }
         .panel { background: #16213e; padding: 20px; border-radius: 10px; margin: 20px 0; }
-        button { padding: 15px 30px; margin: 5px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        button { padding: 15px 30px; margin: 10px; font-size: 18px; border: none; border-radius: 5px; cursor: pointer; }
         .btn-primary { background: #00ff88; }
         .btn-danger { background: #ff3366; color: white; }
-        .btn-warning { background: #ffaa00; }
-        .btn-success { background: #33ccff; }
         .marcador { display: flex; justify-content: space-around; font-size: 32px; margin: 20px 0; }
         .j1 { color: #ff3366; } .j2 { color: #33ccff; }
         .led { display: inline-block; width: 15px; height: 15px; border-radius: 50%; margin-right: 5px; }
         .led-on { background: #0f0; box-shadow: 0 0 10px #0f0; }
         .led-off { background: #333; }
-        .pregunta { background: #0f3460; padding: 20px; font-size: 24px; border-radius: 10px; margin: 20px 0; }
-        .opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
-        .opcion { padding: 15px; background: #0f3460; border-radius: 5px; cursor: pointer; text-align: center; }
-        .opcion:hover { background: #ffaa00; }
-        .opcion.seleccionada { background: #00ff88; color: black; }
+        input { padding: 10px; width: 200px; margin: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>👨‍⚖️ PANEL DEL JUEZ</h1>
         
-        <!-- Estado de conexión -->
-        <div class="panel" id="conexion">
-            🔌 Conectando a la Pico...
-        </div>
-        
-        <!-- PREGUNTAS (AHORA SÍ VISIBLE) -->
+        <!-- Configuración de IP -->
         <div class="panel">
-            <h2>📝 PREGUNTA ACTUAL</h2>
-            <div class="pregunta" id="pregunta">
-                ⏳ Cargando pregunta...
-            </div>
-            <div class="opciones" id="opciones">
-                <div class="opcion" onclick="seleccionarOpcion(1)">A: Cargando...</div>
-                <div class="opcion" onclick="seleccionarOpcion(2)">B: Cargando...</div>
-                <div class="opcion" onclick="seleccionarOpcion(3)">C: Cargando...</div>
-                <div class="opcion" onclick="seleccionarOpcion(4)">D: Cargando...</div>
-            </div>
-            
-            <!-- Control de preguntas -->
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="btn-success" onclick="nuevaPregunta()">🎲 NUEVA PREGUNTA</button>
-            </div>
+            <h3>⚙️ Configuración</h3>
+            <label>IP de la Pico:</label>
+            <input type="text" id="picoIP" placeholder="192.168.1.xxx" value="192.168.1.100">
+            <button class="btn-primary" onclick="guardarIP()">Guardar</button>
+            <div id="conexion">🔌 Esperando...</div>
         </div>
         
         <!-- Marcador -->
@@ -68,213 +47,134 @@
             </div>
         </div>
         
-        <!-- Control de puntos -->
-        <div class="panel" style="text-align: center;">
-            <h3>⚡ CONTROL DE JUGADA</h3>
-            <button class="btn-primary" onclick="aprobarRespuesta()">✅ APROBAR</button>
-            <button class="btn-danger" onclick="rechazar()">❌ RECHAZAR</button>
-            <button class="btn-warning" onclick="reiniciar()">🔄 REINICIAR</button>
+        <!-- Pregunta (simulada) -->
+        <div class="panel">
+            <h2>📝 PREGUNTA ACTUAL</h2>
+            <div id="pregunta">Cargando...</div>
+            <div id="opciones"></div>
         </div>
         
-        <!-- Último evento -->
+        <!-- Control -->
+        <div class="panel" style="text-align: center;">
+            <button class="btn-primary" onclick="darPunto(1)">➕ Punto J1</button>
+            <button class="btn-primary" onclick="darPunto(2)">➕ Punto J2</button>
+            <button class="btn-danger" onclick="rechazar()">❌ Rechazar</button>
+            <button class="btn-danger" onclick="reiniciar()">🔄 Reiniciar</button>
+        </div>
+        
+        <!-- Eventos -->
         <div class="panel" id="eventos">
             📋 Esperando eventos...
         </div>
     </div>
 
     <script>
-        // ========== BASE DE DATOS LOCAL DE PRUEBA ==========
-        const preguntasPrueba = [
-            {
-                texto: "¿Cuál es la capital de Francia?",
-                opciones: ["París", "Londres", "Madrid", "Roma"],
-                correcta: 1
-            },
-            {
-                texto: "¿Quién pintó la Mona Lisa?",
-                opciones: ["Miguel Ángel", "Da Vinci", "Picasso", "Van Gogh"],
-                correcta: 2
-            },
-            {
-                texto: "¿En qué año llegó Colón a América?",
-                opciones: ["1492", "1498", "1502", "1485"],
-                correcta: 1
-            },
-            {
-                texto: "¿Cuánto es 7 x 8?",
-                opciones: ["48", "54", "56", "63"],
-                correcta: 3
-            },
-            {
-                texto: "¿Quién escribió 'Cien años de soledad'?",
-                opciones: ["Vargas Llosa", "García Márquez", "Borges", "Cortázar"],
-                correcta: 2
-            }
-        ];
-        
-        // Variable para la pregunta actual
-        let preguntaActual = preguntasPrueba[0];
-        let opcionSeleccionada = null;
+        let ipPico = localStorage.getItem('picoIP') || '192.168.1.100';
         let ultimoPresiono = null;
         
-        // ========== FUNCIONES DE PREGUNTAS ==========
-        function mostrarPregunta(pregunta) {
-            document.getElementById('pregunta').textContent = pregunta.texto;
-            
-            const opcionesDiv = document.getElementById('opciones');
-            opcionesDiv.innerHTML = '';
-            
-            pregunta.opciones.forEach((opcion, index) => {
-                const letra = String.fromCharCode(65 + index); // A, B, C, D
-                const div = document.createElement('div');
-                div.className = 'opcion';
-                div.setAttribute('onclick', `seleccionarOpcion(${index + 1})`);
-                div.textContent = `${letra}: ${opcion}`;
-                opcionesDiv.appendChild(div);
-            });
-            
-            opcionSeleccionada = null;
+        // Inicializar
+        document.getElementById('picoIP').value = ipPico;
+        
+        function guardarIP() {
+            ipPico = document.getElementById('picoIP').value;
+            localStorage.setItem('picoIP', ipPico);
+            document.getElementById('conexion').innerHTML = '✅ IP guardada';
+            actualizar();
         }
         
-        function seleccionarOpcion(opcion) {
-            opcionSeleccionada = opcion;
-            
-            // Quitar selección anterior
-            document.querySelectorAll('.opcion').forEach(el => {
-                el.classList.remove('seleccionada');
-            });
-            
-            // Marcar la seleccionada
-            event.target.classList.add('seleccionada');
-            
-            agregarEvento(`🔸 Opción ${String.fromCharCode(64 + opcion)} seleccionada`);
-        }
-        
-        function nuevaPregunta() {
-            // Elegir pregunta aleatoria
-            const randomIndex = Math.floor(Math.random() * preguntasPrueba.length);
-            preguntaActual = preguntasPrueba[randomIndex];
-            mostrarPregunta(preguntaActual);
-            agregarEvento(`🎲 Nueva pregunta: ${preguntaActual.texto}`);
-        }
-        
-        async function aprobarRespuesta() {
-            if (!opcionSeleccionada) {
-                alert('Selecciona una respuesta primero');
-                return;
-            }
-            
-            const esCorrecta = (opcionSeleccionada === preguntaActual.correcta);
-            
-            if (esCorrecta) {
-                // Si es correcta, dar punto al último que presionó
-                if (ultimoPresiono === 1) {
-                    await fetch('/api/punto', {
-                        method: 'POST',
-                        body: 'jugador=1'
-                    });
-                    agregarEvento(`✅ J1 correcto: ${preguntaActual.opciones[opcionSeleccionada-1]}`);
-                } else if (ultimoPresiono === 2) {
-                    await fetch('/api/punto', {
-                        method: 'POST',
-                        body: 'jugador=2'
-                    });
-                    agregarEvento(`✅ J2 correcto: ${preguntaActual.opciones[opcionSeleccionada-1]}`);
-                } else {
-                    agregarEvento('⚠️ Nadie presionó primero');
+        async function llamarAPI(endpoint, metodo = 'GET', datos = null) {
+            try {
+                const url = `http://${ipPico}${endpoint}`;
+                console.log(`📡 Llamando a: ${url}`);
+                
+                const options = {
+                    method: metodo,
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                };
+                
+                if (datos) {
+                    options.body = datos;
                 }
-            } else {
-                agregarEvento(`❌ Incorrecto - La correcta era: ${preguntaActual.opciones[preguntaActual.correcta-1]}`);
+                
+                const res = await fetch(url, options);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                
+                if (metodo === 'GET') {
+                    return await res.json();
+                }
+                return true;
+                
+            } catch (e) {
+                console.error('❌ Error:', e);
+                document.getElementById('conexion').innerHTML = '❌ Error conectando';
+                throw e;
             }
-            
-            // Quitar selección
-            document.querySelectorAll('.opcion').forEach(el => {
-                el.classList.remove('seleccionada');
-            });
-            opcionSeleccionada = null;
-            
-            // Actualizar estado
-            actualizar();
         }
         
-        // ========== FUNCIONES DE API ==========
         async function darPunto(jugador) {
-            console.log(`🎯 Dando punto a J${jugador}`);
-            await fetch('/api/punto', {
-                method: 'POST',
-                body: `jugador=${jugador}`
-            });
-            agregarEvento(`✅ Punto manual J${jugador}`);
-            actualizar();
+            try {
+                await llamarAPI('/api/punto', 'POST', `jugador=${jugador}`);
+                agregarEvento(`✅ Punto J${jugador}`);
+                actualizar();
+            } catch (e) {}
         }
         
         async function rechazar() {
-            console.log("❌ Rechazando");
-            await fetch('/api/rechazar', { method: 'POST' });
-            agregarEvento("❌ Jugada rechazada");
-            actualizar();
+            try {
+                await llamarAPI('/api/rechazar', 'POST');
+                agregarEvento("❌ Jugada rechazada");
+                actualizar();
+            } catch (e) {}
         }
         
         async function reiniciar() {
-            console.log("🔄 Reiniciando");
-            await fetch('/api/reiniciar', { method: 'POST' });
-            agregarEvento("🔄 Juego reiniciado");
-            opcionSeleccionada = null;
-            document.querySelectorAll('.opcion').forEach(el => {
-                el.classList.remove('seleccionada');
-            });
-            actualizar();
+            try {
+                await llamarAPI('/api/reiniciar', 'POST');
+                agregarEvento("🔄 Juego reiniciado");
+                actualizar();
+            } catch (e) {}
         }
         
-        // ========== FUNCIONES DE ESTADO ==========
         function agregarEvento(texto) {
             const div = document.getElementById('eventos');
             const hora = new Date().toLocaleTimeString();
             div.innerHTML = `<div>${hora} - ${texto}</div>` + div.innerHTML;
-            
-            // Limitar a 10 eventos
-            while (div.children.length > 10) {
-                div.removeChild(div.lastChild);
-            }
         }
         
         async function actualizar() {
             try {
-                const res = await fetch('/api/estado');
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await llamarAPI('/api/estado');
                 
-                const data = await res.json();
-                console.log("📊 Estado:", data);
-                
-                // Actualizar marcador
                 document.getElementById('score1').textContent = data.puntaje_j1 || 0;
                 document.getElementById('score2').textContent = data.puntaje_j2 || 0;
-                
-                // Actualizar LEDs
                 document.getElementById('ledJ1').className = data.led_j1 ? 'led led-on' : 'led led-off';
                 document.getElementById('ledJ2').className = data.led_j2 ? 'led led-on' : 'led led-off';
+                document.getElementById('conexion').innerHTML = '✅ Conectado';
                 
-                // Actualizar estado de conexión
-                document.getElementById('conexion').innerHTML = '✅ Conectado a la Pico';
+                // Pregunta simulada
+                const preguntas = [
+                    {texto: "¿Cuál es la capital de Francia?", ops: ["París", "Londres", "Madrid", "Roma"]},
+                    {texto: "¿Quién pintó la Mona Lisa?", ops: ["Da Vinci", "Picasso", "Van Gogh", "Miguel Ángel"]},
+                    {texto: "¿Cuánto es 7x8?", ops: ["48", "54", "56", "63"]}
+                ];
+                const p = preguntas[Math.floor(Math.random() * preguntas.length)];
+                document.getElementById('pregunta').textContent = p.texto;
+                let opsHtml = '';
+                p.ops.forEach((op, i) => {
+                    opsHtml += `<div>${String.fromCharCode(65+i)}: ${op}</div>`;
+                });
+                document.getElementById('opciones').innerHTML = opsHtml;
                 
-                // Si alguien presionó físicamente
                 if (data.ultimo_presiono && data.ultimo_presiono !== ultimoPresiono) {
-                    agregarEvento(`👆 Jugador ${data.ultimo_presiono} presionó BOTÓN FÍSICO`);
+                    agregarEvento(`👆 Jugador ${data.ultimo_presiono} presionó`);
                     ultimoPresiono = data.ultimo_presiono;
                 }
                 
-            } catch (e) {
-                console.error('❌ Error:', e);
-                document.getElementById('conexion').innerHTML = '❌ Error conectando a la Pico';
-            }
+            } catch (e) {}
         }
         
-        // ========== INICIALIZAR ==========
-        // Mostrar primera pregunta
-        mostrarPregunta(preguntaActual);
-        
-        // Actualizar cada 200ms
-        setInterval(actualizar, 200);
+        setInterval(actualizar, 1000);
         actualizar();
     </script>
 </body>
